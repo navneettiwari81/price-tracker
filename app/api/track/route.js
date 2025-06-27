@@ -1,16 +1,19 @@
 import { NextResponse } from 'next/server';
-import fs from 'fs';
-import path from 'path';
-import { scrapeProduct } from '../../../lib/scraper';
+import { createClient } from 'redis';
+import { scrapeProduct } from '../../lib/scraper';
 
-const productsFilePath = path.join(process.cwd(), 'data', 'products.json');
-
-const dataDir = path.dirname(productsFilePath);
-if (!fs.existsSync(dataDir)) {
-  fs.mkdirSync(dataDir, { recursive: true });
+// Helper function to create and connect a Redis client
+async function getRedisClient() {
+  const client = createClient({
+    url: process.env.REDIS_URL
+  });
+  client.on('error', (err) => console.error('Redis Client Error', err));
+  await client.connect();
+  return client;
 }
 
 export async function POST(request) {
+  const client = await getRedisClient();
   try {
     const body = await request.json();
     const { url, trackingType, value } = body;
@@ -26,24 +29,20 @@ export async function POST(request) {
 
     let desiredPrice;
     if (trackingType === 'percentage') {
-      // Calculate the target price based on the percentage discount
       desiredPrice = product.currentPrice * (1 - value / 100);
     } else {
       desiredPrice = value;
     }
 
-    let products = [];
-    if (fs.existsSync(productsFilePath)) {
-      const fileContents = fs.readFileSync(productsFilePath, 'utf-8');
-      if (fileContents) products = JSON.parse(fileContents);
-    }
+    const productsJSON = await client.get('products');
+    const products = productsJSON ? JSON.parse(productsJSON) : [];
 
     const newProduct = {
       id: Date.now().toString(),
       url,
       trackingType,
       desiredValue: value,
-      desiredPrice, // This is the calculated target price
+      desiredPrice,
       title: product.title,
       initialPrice: product.currentPrice,
       currentPrice: product.currentPrice,
@@ -51,12 +50,16 @@ export async function POST(request) {
     };
 
     products.push(newProduct);
-    fs.writeFileSync(productsFilePath, JSON.stringify(products, null, 2));
+    await client.set('products', JSON.stringify(products));
 
     return NextResponse.json({ message: 'Product tracking started', product: newProduct }, { status: 200 });
 
   } catch (error) {
-    console.error(error);
+    console.error('Error in track API:', error);
     return NextResponse.json({ message: 'An internal server error occurred.' }, { status: 500 });
+  } finally {
+      if (client.isOpen) {
+        await client.quit();
+      }
   }
 }
