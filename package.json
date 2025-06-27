@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack",
-    "build": "npx playwright install && npm install && npx playwright install-deps && next build",
+    "build": "next build",
     "start": "next start",
     "lint": "next lint",
     "check-prices": "node cron/price-checker.js"
