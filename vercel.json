@@ -1,0 +1,8 @@
+{
+  "functions": {
+    "app/api/track/route.js": {
+      "maxDuration": 60
+    }
+  },
+  "regions": ["bom1"]
+}
