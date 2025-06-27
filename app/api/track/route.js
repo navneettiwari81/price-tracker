@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from 'redis';
-import { scrapeProduct } from '../../lib/scraper';
+import { scrapeProduct } from '../../../lib/scraper';
 
 // Helper function to create and connect a Redis client
 async function getRedisClient() {
